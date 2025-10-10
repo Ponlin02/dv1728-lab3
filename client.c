@@ -86,6 +86,73 @@ bool try_connect(int *sockfd, char *Desthost, char *Destport)
 int main(int argc, char *argv[]){
   
   /* Do magic */
+  if (argc < 2) {
+    fprintf(stderr, "Usage: %s server:port\n", argv[0]);
+    exit(EXIT_FAILURE);
+  }
   
+  char *input = argv[1];
+  char *sep = strchr(input, ':');
+  
+  if (!sep) {
+    fprintf(stderr, "Error: input must be in host:port format\n");
+    return 1;
+  }
+  
+  // Allocate buffers big enough
+  char hoststring[256];
+  char portstring[64];
+  
+  // Copy host part
+  size_t hostlen = sep - input;
+  if (hostlen >= sizeof(hoststring)) {
+    fprintf(stderr, "Error: hostname too long\n");
+    return 1;
+  }
+  strncpy(hoststring, input, hostlen);
+  hoststring[hostlen] = '\0';
+  
+  // Copy port part
+  strncpy(portstring, sep + 1, sizeof(portstring) - 1);
+  portstring[sizeof(portstring) - 1] = '\0';
 
+  /**
+   * ADD nickname handling here
+   * :)
+   */
+  
+  printf("TCP server on: %s:%s\n", hoststring,portstring);
+
+  int sockfd;
+  fd_set readfds;
+  fd_set writefds;
+  struct timeval tv;
+  bool connection_status = try_connect(&sockfd, hoststring, portstring);
+  if(!connection_status)
+  {
+    return EXIT_FAILURE;
+  }
+
+  while(1)
+  {
+    FD_ZERO(&readfds);
+    FD_SET(sockfd, &readfds);
+    tv.tv_sec = 5;
+    tv.tv_usec = 0;
+
+    int select_status = select(sockfd + 1, &readfds, NULL, NULL, &tv);
+    if(select_status == -1)
+    {
+      printf("ERROR: Select error\n");
+      break;
+    }
+    else if(select_status == 0)
+    {
+      //rerun loop might not need a timeout but its just for testing right now
+      close(sockfd);
+    }
+  }
+  
+  close(sockfd);
+  return 0;
 }
