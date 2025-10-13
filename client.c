@@ -142,16 +142,12 @@ bool chat_protocol(int sockfd, char *nickname)
   if(bytes_recieved == -1)
   {
     printf("ERROR: MESSAGE LOST (TIMEOUT)\n");
-    fprintf(stderr, "ERROR\n");
-    fflush(stderr);
     return false;
   }
 
   if(strstr(recv_buffer, "HELLO 1") == NULL)
   {
     printf("ERROR: MISSMATCH PROTOCOL\n");
-    fprintf(stderr, "ERROR\n");
-    fflush(stderr);
     return false;
   }
 
@@ -163,16 +159,12 @@ bool chat_protocol(int sockfd, char *nickname)
   if(bytes_recieved2 == -1)
   {
     printf("ERROR: MESSAGE LOST (TIMEOUT)\n");
-    fprintf(stderr, "ERROR\n");
-    fflush(stderr);
     return false;
   }
 
   if(strstr(recv_buffer, "OK") == NULL)
   {
     printf("ERROR: Invalid NICK\n");
-    fprintf(stderr, "ERROR\n");
-    fflush(stderr);
     return false;
   }
 
@@ -255,11 +247,11 @@ int main(int argc, char *argv[]){
     return EXIT_FAILURE;
   }
 
-  /*struct termios oldt, newt;
+  struct termios oldt, newt;
   tcgetattr(STDIN_FILENO, &oldt);
   newt = oldt;
   newt.c_lflag &= ~(ICANON | ECHO);
-  tcsetattr(STDIN_FILENO, TCSANOW, &newt);*/
+  tcsetattr(STDIN_FILENO, TCSANOW, &newt);
 
   while(1)
   {
@@ -308,7 +300,7 @@ int main(int argc, char *argv[]){
     }
   }
 
-  //tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+  tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
   close(sockfd);
   return 0;
 }
