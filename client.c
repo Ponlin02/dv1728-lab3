@@ -169,6 +169,7 @@ bool chat_protocol(int sockfd, char *nickname)
   }
 
   printf("Name accepted!\n");
+  fflush(stdout);
   return true;
 }
 
@@ -177,9 +178,11 @@ void handleMessage(char *recv_buffer)
   if(strstr(recv_buffer, "MSG") == NULL)
   {
     printf("%s\n", recv_buffer);
+    fflush(stdout);
     return;
   }
   printf("%s", recv_buffer + 4);
+  fflush(stdout);
 }
 
 int main(int argc, char *argv[]){
@@ -218,6 +221,7 @@ int main(int argc, char *argv[]){
   char *nickname = argv[2];
   
   printf("TCP server on: %s:%s user: %s\n", hoststring,portstring, nickname);
+  fflush(stdout);
 
   int sockfd;
   fd_set readfds;
