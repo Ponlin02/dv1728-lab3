@@ -294,7 +294,7 @@ int main(int argc, char *argv[]){
       if(bytes_recieved == 0)
       {
         printf("Server closed the connection.\n");
-        return EXIT_FAILURE;
+        exit(EXIT_FAILURE);
       }
       handleMessage(recv_buffer);
     }
