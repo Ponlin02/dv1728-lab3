@@ -142,12 +142,16 @@ bool chat_protocol(int sockfd, char *nickname)
   if(bytes_recieved == -1)
   {
     printf("ERROR: MESSAGE LOST (TIMEOUT)\n");
+    fprintf(stderr, "ERROR\n");
+    fflush(stderr);
     return false;
   }
 
   if(strstr(recv_buffer, "HELLO 1") == NULL)
   {
     printf("ERROR: MISSMATCH PROTOCOL\n");
+    fprintf(stderr, "ERROR\n");
+    fflush(stderr);
     return false;
   }
 
@@ -159,12 +163,16 @@ bool chat_protocol(int sockfd, char *nickname)
   if(bytes_recieved2 == -1)
   {
     printf("ERROR: MESSAGE LOST (TIMEOUT)\n");
+    fprintf(stderr, "ERROR\n");
+    fflush(stderr);
     return false;
   }
 
   if(strstr(recv_buffer, "OK") == NULL)
   {
     printf("ERROR: Invalid NICK\n");
+    fprintf(stderr, "ERROR\n");
+    fflush(stderr);
     return false;
   }
 
