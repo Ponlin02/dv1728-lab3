@@ -117,7 +117,7 @@ bool nick_checks(char *nickname)
 {
   if(strlen(nickname) > 12)
   {
-    printf("ERROR: NICK CANT BE LONGER THAN 12 CHARACTERS\n");
+    fprintf(stderr, "ERROR: NICK CANT BE LONGER THAN 12 CHARACTERS\n");
     return false;
   }
 
@@ -127,7 +127,7 @@ bool nick_checks(char *nickname)
 
     if(!(isalpha(c) || isdigit(c) || c == '_'))
     {
-      printf("ERROR: WRONG CHARACTERS\n");
+      fprintf(stderr, "ERROR: WRONG CHARACTERS\n");
       return false;
     }
   }
@@ -145,9 +145,9 @@ bool chat_protocol(int sockfd, char *nickname)
     return false;
   }
 
-  if(strstr(recv_buffer, "HELLO 1") == NULL)
+  if(strstr(recv_buffer, "HELLO 1\n") == NULL)
   {
-    printf("ERROR: MISSMATCH PROTOCOL\n");
+    fprintf(stderr, "ERROR: MISSMATCH PROTOCOL\n");
     return false;
   }
 
@@ -158,13 +158,13 @@ bool chat_protocol(int sockfd, char *nickname)
   ssize_t bytes_recieved2 = recv_helper(sockfd, recv_buffer, sizeof(recv_buffer));
   if(bytes_recieved2 == -1)
   {
-    printf("ERROR: MESSAGE LOST (TIMEOUT)\n");
+    fprintf(stderr, "ERROR: MESSAGE LOST (TIMEOUT)\n");
     return false;
   }
 
-  if(strstr(recv_buffer, "OK") == NULL)
+  if(strstr(recv_buffer, "OK\n") == NULL)
   {
-    printf("ERROR: Invalid NICK\n");
+    fprintf(stderr, "ERROR: Invalid NICK\n");
     return false;
   }
 
@@ -294,7 +294,7 @@ int main(int argc, char *argv[]){
       if(bytes_recieved == 0)
       {
         printf("Server closed the connection.\n");
-        exit(EXIT_FAILURE);
+        return EXIT_FAILURE;
       }
       handleMessage(recv_buffer);
     }
