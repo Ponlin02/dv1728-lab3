@@ -9,12 +9,42 @@
 #include <netdb.h>
 #include <stdbool.h>
 #include <string.h>
+#include <ctype.h>
+#include <termios.h>
 
 // Enable if you want debugging to be printed, see examble below.
 // Alternative, pass CFLAGS=-DDEBUG to make, make CFLAGS=-DDEBUG
-#define DEBUG
+//#define DEBUG
 
 
+
+ssize_t send_helper(int sockfd, const char* send_buffer)
+{
+  ssize_t bytes_sent = send(sockfd, send_buffer, strlen(send_buffer), 0);
+
+  #ifdef DEBUG
+  printf("\nBytes sent: %ld\n", bytes_sent);
+  printf("CLIENT SENT:\n%s\n", send_buffer);
+  #endif
+
+  return bytes_sent;
+}
+
+ssize_t recv_helper(int sockfd, char* recv_buffer, size_t bufsize)
+{
+  ssize_t bytes_recieved = recv(sockfd, recv_buffer, bufsize - 1, 0);
+  if(bytes_recieved > 0)
+  {
+    recv_buffer[bytes_recieved] = '\0';
+  }
+
+  #ifdef DEBUG
+  printf("\nBytes recieved: %ld\n", bytes_recieved);
+  printf("SERVER RESPONSE:\n%s", recv_buffer);
+  #endif
+  
+  return bytes_recieved;
+}
 
 bool try_connect(int *sockfd, char *Desthost, char *Destport)
 {
@@ -83,32 +113,73 @@ bool try_connect(int *sockfd, char *Desthost, char *Destport)
   return true;
 }
 
-ssize_t send_helper(int sockfd, const char* send_buffer)
+bool nick_checks(char *nickname)
 {
-  ssize_t bytes_sent = send(sockfd, send_buffer, strlen(send_buffer), 0);
-
-  #ifdef DEBUG
-  printf("\nBytes sent: %ld\n", bytes_sent);
-  printf("CLIENT SENT:\n%s\n", send_buffer);
-  #endif
-
-  return bytes_sent;
-}
-
-ssize_t recv_helper(int sockfd, char* recv_buffer, size_t bufsize)
-{
-  ssize_t bytes_recieved = recv(sockfd, recv_buffer, bufsize - 1, 0);
-  if(bytes_recieved > 0)
+  if(strlen(nickname) > 12)
   {
-    recv_buffer[bytes_recieved] = '\0';
+    printf("ERROR: NICK CANT BE LONGER THAN 12 CHARACTERS\n");
+    return false;
   }
 
-  #ifdef DEBUG
-  printf("\nBytes recieved: %ld\n", bytes_recieved);
-  printf("SERVER RESPONSE:\n%s", recv_buffer);
-  #endif
-  
-  return bytes_recieved;
+  for(int i = 0; nickname[i] == '\0'; i++)
+  {
+    char c = nickname[i];
+
+    if(!(isalpha(c) || isdigit(c) || c == '_'))
+    {
+      printf("ERROR: WRONG CHARACTERS\n");
+      return false;
+    }
+  }
+
+  return true;
+}
+
+bool chat_protocol(int sockfd, char *nickname)
+{
+  char recv_buffer[1024];
+  ssize_t bytes_recieved = recv_helper(sockfd, recv_buffer, sizeof(recv_buffer));
+  if(bytes_recieved == -1)
+  {
+    printf("ERROR: MESSAGE LOST (TIMEOUT)\n");
+    return false;
+  }
+
+  if(strstr(recv_buffer, "HELLO 1") == NULL)
+  {
+    printf("ERROR: MISSMATCH PROTOCOL\n");
+    return false;
+  }
+
+  char send_buffer[1024];
+  sprintf(send_buffer, "%s %s\n", "NICK", nickname);
+  send_helper(sockfd, send_buffer);
+
+  ssize_t bytes_recieved2 = recv_helper(sockfd, recv_buffer, sizeof(recv_buffer));
+  if(bytes_recieved2 == -1)
+  {
+    printf("ERROR: MESSAGE LOST (TIMEOUT)\n");
+    return false;
+  }
+
+  if(strstr(recv_buffer, "OK") == NULL)
+  {
+    printf("ERROR: Invalid NICK\n");
+    return false;
+  }
+
+  printf("Name accepted!\n");
+  return true;
+}
+
+void handleMessage(char *recv_buffer)
+{
+  if(strstr(recv_buffer, "MSG") == NULL)
+  {
+    printf("%s\n", recv_buffer);
+    return;
+  }
+  printf("%s", recv_buffer + 4);
 }
 
 int main(int argc, char *argv[]){
@@ -158,6 +229,26 @@ int main(int argc, char *argv[]){
     return EXIT_FAILURE;
   }
 
+  bool nick_status = nick_checks(nickname);
+  if(!nick_status)
+  {
+    close(sockfd);
+    return EXIT_FAILURE;
+  }
+
+  bool chat_status = chat_protocol(sockfd, nickname);
+  if(!chat_status)
+  {
+    close(sockfd);
+    return EXIT_FAILURE;
+  }
+
+  /*struct termios oldt, newt;
+  tcgetattr(STDIN_FILENO, &oldt);
+  newt = oldt;
+  newt.c_lflag &= ~(ICANON | ECHO);
+  tcsetattr(STDIN_FILENO, TCSANOW, &newt);*/
+
   while(1)
   {
     FD_ZERO(&readfds);
@@ -181,7 +272,9 @@ int main(int argc, char *argv[]){
     if(FD_ISSET(STDIN_FILENO, &readfds))
     {
       char send_buffer[1024];
-      fgets(send_buffer, sizeof(send_buffer), stdin);
+      char input[256];
+      fgets(input, sizeof(input), stdin);
+      sprintf(send_buffer, "%s %s", "MSG", input);
       send_helper(sockfd, send_buffer);
     }
 
@@ -199,10 +292,11 @@ int main(int argc, char *argv[]){
         printf("Server closed the connection.\n");
         break;
       }
-      printf("Server sent: %s", recv_buffer);
+      handleMessage(recv_buffer);
     }
   }
-  
+
+  //tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
   close(sockfd);
   return 0;
 }
