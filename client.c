@@ -83,11 +83,39 @@ bool try_connect(int *sockfd, char *Desthost, char *Destport)
   return true;
 }
 
+ssize_t send_helper(int sockfd, const char* send_buffer)
+{
+  ssize_t bytes_sent = send(sockfd, send_buffer, strlen(send_buffer), 0);
+
+  #ifdef DEBUG
+  printf("\nBytes sent: %ld\n", bytes_sent);
+  printf("CLIENT SENT:\n%s\n", send_buffer);
+  #endif
+
+  return bytes_sent;
+}
+
+ssize_t recv_helper(int sockfd, char* recv_buffer, size_t bufsize)
+{
+  ssize_t bytes_recieved = recv(sockfd, recv_buffer, bufsize - 1, 0);
+  if(bytes_recieved > 0)
+  {
+    recv_buffer[bytes_recieved] = '\0';
+  }
+
+  #ifdef DEBUG
+  printf("\nBytes recieved: %ld\n", bytes_recieved);
+  printf("SERVER RESPONSE:\n%s", recv_buffer);
+  #endif
+  
+  return bytes_recieved;
+}
+
 int main(int argc, char *argv[]){
   
   /* Do magic */
-  if (argc < 2) {
-    fprintf(stderr, "Usage: %s server:port\n", argv[0]);
+  if (argc < 3) {
+    fprintf(stderr, "Usage: %s server:port NICK\n", argv[0]);
     exit(EXIT_FAILURE);
   }
   
@@ -116,12 +144,9 @@ int main(int argc, char *argv[]){
   strncpy(portstring, sep + 1, sizeof(portstring) - 1);
   portstring[sizeof(portstring) - 1] = '\0';
 
-  /**
-   * ADD nickname handling here
-   * :)
-   */
+  char *nickname = argv[2];
   
-  printf("TCP server on: %s:%s\n", hoststring,portstring);
+  printf("TCP server on: %s:%s user: %s\n", hoststring,portstring, nickname);
 
   int sockfd;
   fd_set readfds;
@@ -136,6 +161,7 @@ int main(int argc, char *argv[]){
   while(1)
   {
     FD_ZERO(&readfds);
+    FD_SET(STDIN_FILENO, &readfds);
     FD_SET(sockfd, &readfds);
     tv.tv_sec = 5;
     tv.tv_usec = 0;
@@ -148,8 +174,32 @@ int main(int argc, char *argv[]){
     }
     else if(select_status == 0)
     {
-      //rerun loop might not need a timeout but its just for testing right now
-      close(sockfd);
+      //No activity continue waiting
+      continue;
+    }
+
+    if(FD_ISSET(STDIN_FILENO, &readfds))
+    {
+      char send_buffer[1024];
+      fgets(send_buffer, sizeof(send_buffer), stdin);
+      send_helper(sockfd, send_buffer);
+    }
+
+    if(FD_ISSET(sockfd, &readfds))
+    {
+      char recv_buffer[1024];
+      ssize_t bytes_recieved = recv_helper(sockfd, recv_buffer, sizeof(recv_buffer));
+      if(bytes_recieved == -1)
+      {
+        printf("ERROR: MESSAGE LOST (TIMEOUT)\n");
+        continue;
+      }
+      if(bytes_recieved == 0)
+      {
+        printf("Server closed the connection.\n");
+        break;
+      }
+      printf("Server sent: %s", recv_buffer);
     }
   }
   
