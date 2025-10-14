@@ -4,15 +4,25 @@
 /* You will to add includes here */
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <unistd.h>
 #include <netdb.h>
-#include <signal.h>
 #include <stdbool.h>
 #include <string.h>
+#include <ctype.h>
 
 // Enable if you want debugging to be printed, see examble below.
 // Alternative, pass CFLAGS=-DDEBUG to make, make CFLAGS=-DDEBUG
 #define DEBUG
+#define MAXCLIENTS 20
+
+struct clientInfo
+{
+  int sockfd;
+  char nickname[32];
+  int step;
+  bool active;
+};
 
 bool serverSetup(int *sockfd, char *hoststring, char *portstring)
 {
@@ -90,6 +100,27 @@ bool serverSetup(int *sockfd, char *hoststring, char *portstring)
   return true;
 }
 
+bool nick_checks(char *nickname)
+{
+  if(strlen(nickname) > 12)
+  {
+    fprintf(stderr, "ERROR: NICK CANT BE LONGER THAN 12 CHARACTERS\n");
+    return false;
+  }
+
+  for(int i = 0; nickname[i] == '\0'; i++)
+  {
+    char c = nickname[i];
+
+    if(!(isalpha(c) || isdigit(c) || c == '_'))
+    {
+      fprintf(stderr, "ERROR: WRONG CHARACTERS\n");
+      return false;
+    }
+  }
+
+  return true;
+}
 
 int main(int argc, char *argv[]){
   
@@ -127,10 +158,70 @@ int main(int argc, char *argv[]){
   printf("TCP server on: %s:%s\n", hoststring,portstring);
   
   int sockfd;
+  fd_set readfds;
+  struct timeval tv;
   bool setup_status = serverSetup(&sockfd, hoststring, portstring);
   if(!setup_status)
   {
     return EXIT_FAILURE;
+  }
+
+  struct clientInfo client_table[MAXCLIENTS];
+  memset(client_table, 0, sizeof(client_table));
+  int maxfd = sockfd;
+
+  while(1)
+  {
+    FD_ZERO(&readfds);
+    FD_SET(sockfd, &readfds);
+    tv.tv_sec = 1;
+    tv.tv_usec = 0;
+
+    int select_status = select(maxfd + 1, &readfds, NULL, NULL, &tv);
+    if(select_status == -1)
+    {
+      printf("ERROR: Select error\n");
+      fflush(stdout);
+      continue;
+    }
+    else if(select_status == 0)
+    {
+      //Nothing happend keep listening
+      continue;
+    }
+
+    //New connection
+    if(FD_ISSET(sockfd, &readfds))
+    {
+      int clientfd = accept(sockfd, NULL, NULL);
+      if(clientfd < 0)
+      {
+        printf("ERROR: clientfd Failed\n");
+        fflush(stdout);
+        printf("Returned: %d\n", clientfd);
+        fflush(stdout);
+        continue;
+      }
+
+      //New client, put the client in table
+      for(int i = 0; i < MAXCLIENTS; i++)
+      {
+        if(!client_table[i].active)
+        {
+          client_table[i].sockfd = clientfd;
+          client_table[i].active = true;
+          client_table[i].step = 0;
+          FD_SET(clientfd, &readfds);
+          if(clientfd > maxfd)
+          {
+            maxfd = clientfd;
+          }
+          break;
+        }
+      }
+    }
+
+    //Existing client
   }
 
   close(sockfd);
