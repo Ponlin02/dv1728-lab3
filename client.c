@@ -75,9 +75,6 @@ bool try_connect(int *sockfd, char *Desthost, char *Destport)
     {
       break;
     }
-    #ifdef DEBUG
-    printf("Socket retry");
-    #endif
   }
 
   if(*sockfd == -1)
@@ -260,11 +257,11 @@ int main(int argc, char *argv[]){
     return EXIT_FAILURE;
   }
 
-  struct termios oldt, newt;
+  /*struct termios oldt, newt;
   tcgetattr(STDIN_FILENO, &oldt);
   newt = oldt;
   newt.c_lflag &= ~(ICANON | ECHO);
-  tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+  tcsetattr(STDIN_FILENO, TCSANOW, &newt);*/
 
   while(1)
   {
@@ -278,7 +275,7 @@ int main(int argc, char *argv[]){
     if(select_status == -1)
     {
       printf("ERROR: Select error\n");
-      tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+      //tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
       close(sockfd);
       return EXIT_FAILURE;
     }
@@ -309,7 +306,7 @@ int main(int argc, char *argv[]){
       if(bytes_recieved == 0)
       {
         printf("Server closed the connection.\n");
-        tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+        //tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
         close(sockfd);
         return EXIT_FAILURE;
       }
@@ -317,7 +314,7 @@ int main(int argc, char *argv[]){
     }
   }
 
-  tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+  //tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
   close(sockfd);
   return 0;
 }

@@ -220,8 +220,6 @@ int main(int argc, char *argv[]){
         }
       }
     }
-
-    //Existing client
   }
 
   close(sockfd);
