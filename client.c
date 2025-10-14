@@ -141,7 +141,7 @@ bool chat_protocol(int sockfd, char *nickname)
   ssize_t bytes_recieved = recv_helper(sockfd, recv_buffer, sizeof(recv_buffer));
   if(bytes_recieved == -1)
   {
-    printf("ERROR: MESSAGE LOST (TIMEOUT)\n");
+    fprintf(stderr, "ERROR: MESSAGE LOST (TIMEOUT)\n");
     return false;
   }
 
@@ -153,7 +153,12 @@ bool chat_protocol(int sockfd, char *nickname)
 
   char send_buffer[1024];
   sprintf(send_buffer, "%s %s\n", "NICK", nickname);
-  send_helper(sockfd, send_buffer);
+  ssize_t bytes_sent = send_helper(sockfd, send_buffer);
+  if(bytes_sent == -1)
+  {
+    fprintf(stderr, "ERROR: COULDNT SEND MESSAGE\n");
+    return false;
+  }
 
   ssize_t bytes_recieved2 = recv_helper(sockfd, recv_buffer, sizeof(recv_buffer));
   if(bytes_recieved2 == -1)
@@ -164,7 +169,7 @@ bool chat_protocol(int sockfd, char *nickname)
 
   if(strstr(recv_buffer, "OK\n") == NULL)
   {
-    fprintf(stderr, "ERROR: Invalid NICK\n");
+    fprintf(stderr, "ERROR: INVALID NICK\n");
     return false;
   }
 
@@ -183,6 +188,7 @@ void handleMessage(char *recv_buffer)
   }
   printf("%s", recv_buffer + 4);
   fflush(stdout);
+  return;
 }
 
 int main(int argc, char *argv[]){
@@ -225,7 +231,6 @@ int main(int argc, char *argv[]){
 
   int sockfd;
   fd_set readfds;
-  fd_set writefds;
   struct timeval tv;
   bool connection_status = try_connect(&sockfd, hoststring, portstring);
   if(!connection_status)
@@ -258,14 +263,16 @@ int main(int argc, char *argv[]){
     FD_ZERO(&readfds);
     FD_SET(STDIN_FILENO, &readfds);
     FD_SET(sockfd, &readfds);
-    tv.tv_sec = 5;
+    tv.tv_sec = 1;
     tv.tv_usec = 0;
 
     int select_status = select(sockfd + 1, &readfds, NULL, NULL, &tv);
     if(select_status == -1)
     {
       printf("ERROR: Select error\n");
-      break;
+      tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+      close(sockfd);
+      return EXIT_FAILURE;
     }
     else if(select_status == 0)
     {
@@ -294,6 +301,8 @@ int main(int argc, char *argv[]){
       if(bytes_recieved == 0)
       {
         printf("Server closed the connection.\n");
+        tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+        close(sockfd);
         return EXIT_FAILURE;
       }
       handleMessage(recv_buffer);
