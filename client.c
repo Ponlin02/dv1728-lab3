@@ -135,6 +135,25 @@ bool nick_checks(char *nickname)
   return true;
 }
 
+void handleMessage(char *recv_buffer)
+{
+  char *msg = recv_buffer;
+
+  while((msg = strstr(msg, "MSG")) != NULL)
+  {
+    char * end = strchr(msg, '\n');
+    if(end == NULL)
+    {
+      break; //Incomplete message..
+    }
+    *end = '\0';
+    
+    printf("%s\n", msg + 4);
+    fflush(stdout);
+    msg = end + 1;
+  }
+}
+
 bool chat_protocol(int sockfd, char *nickname)
 {
   char recv_buffer[1024];
@@ -175,26 +194,9 @@ bool chat_protocol(int sockfd, char *nickname)
 
   printf("Name accepted!\n");
   fflush(stdout);
+  handleMessage(recv_buffer + 3);
+  fflush(stdout);
   return true;
-}
-
-void handleMessage(char *recv_buffer)
-{
-  char *msg = recv_buffer;
-
-  while((msg = strstr(msg, "MSG")) != NULL)
-  {
-    char * end = strchr(msg, '\n');
-    if(end == NULL)
-    {
-      break; //Incomplete message..
-    }
-    *end = '\0';
-    
-    printf("%s\n", msg + 4);
-    fflush(stdout);
-    msg = end + 1;
-  }
 }
 
 int main(int argc, char *argv[]){
