@@ -138,7 +138,7 @@ void handleMessage(char *recv_buffer)
 
   while((msg = strstr(msg, "MSG")) != NULL)
   {
-    char * end = strchr(msg, '\n');
+    char *end = strchr(msg, '\n');
     if(end == NULL)
     {
       break; //Incomplete message..
@@ -257,11 +257,11 @@ int main(int argc, char *argv[]){
     return EXIT_FAILURE;
   }
 
-  /*struct termios oldt, newt;
+  struct termios oldt, newt;
   tcgetattr(STDIN_FILENO, &oldt);
   newt = oldt;
   newt.c_lflag &= ~(ICANON | ECHO);
-  tcsetattr(STDIN_FILENO, TCSANOW, &newt);*/
+  tcsetattr(STDIN_FILENO, TCSANOW, &newt);
 
   while(1)
   {
@@ -275,7 +275,7 @@ int main(int argc, char *argv[]){
     if(select_status == -1)
     {
       printf("ERROR: Select error\n");
-      //tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+      tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
       close(sockfd);
       return EXIT_FAILURE;
     }
@@ -290,7 +290,8 @@ int main(int argc, char *argv[]){
       char send_buffer[1024];
       char input[256];
       fgets(input, sizeof(input), stdin);
-      sprintf(send_buffer, "%s %s", "MSG", input);
+      sprintf(send_buffer, "%s %s: %s", "MSG", nickname, input);
+      printf("send_buffer: %s", send_buffer);
       send_helper(sockfd, send_buffer);
     }
 
@@ -306,7 +307,7 @@ int main(int argc, char *argv[]){
       if(bytes_recieved == 0)
       {
         printf("Server closed the connection.\n");
-        //tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+        tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
         close(sockfd);
         return EXIT_FAILURE;
       }
@@ -314,7 +315,7 @@ int main(int argc, char *argv[]){
     }
   }
 
-  //tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+  tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
   close(sockfd);
   return 0;
 }
