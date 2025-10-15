@@ -13,7 +13,7 @@
 
 // Enable if you want debugging to be printed, see examble below.
 // Alternative, pass CFLAGS=-DDEBUG to make, make CFLAGS=-DDEBUG
-#define DEBUG
+//#define DEBUG
 #define MAXCLIENTS 20
 
 struct clientInfo
@@ -23,6 +23,34 @@ struct clientInfo
   int step;
   bool active;
 };
+
+ssize_t send_helper(int sockfd, const char* send_buffer)
+{
+  ssize_t bytes_sent = send(sockfd, send_buffer, strlen(send_buffer), 0);
+
+  #ifdef DEBUG
+  printf("\nBytes sent: %ld\n", bytes_sent);
+  printf("SERVER SENT:\n%s\n", send_buffer);
+  #endif
+
+  return bytes_sent;
+}
+
+ssize_t recv_helper(int sockfd, char* recv_buffer, size_t bufsize)
+{
+  ssize_t bytes_recieved = recv(sockfd, recv_buffer, bufsize - 1, 0);
+  if(bytes_recieved > 0)
+  {
+    recv_buffer[bytes_recieved] = '\0';
+  }
+
+  #ifdef DEBUG
+  printf("\nBytes recieved: %ld\n", bytes_recieved);
+  printf("CLIENTS RESPONSE:\n%s", recv_buffer);
+  #endif
+  
+  return bytes_recieved;
+}
 
 bool serverSetup(int *sockfd, char *hoststring, char *portstring)
 {
@@ -122,6 +150,80 @@ bool nick_checks(char *nickname)
   return true;
 }
 
+void msg_step_one(struct clientInfo *table, int i)
+{
+  char recv_buffer[1024];
+  ssize_t bytes_recieved = recv_helper(table[i].sockfd, recv_buffer, sizeof(recv_buffer));
+  if(bytes_recieved <= 0)
+  {
+    char error[] = "ERR client disconnected\n";
+    send_helper(table[i].sockfd, error);
+    printf("Disconnect\n");
+    fflush(stdout);
+    table[i].active = false;
+    return;
+  }
+
+  char nick_key[10];
+  char nick[32];
+  sscanf(recv_buffer, "%s %s", nick_key, nick);
+  if(strstr(nick_key, "NICK") == NULL)
+  {
+    char error[] = "ERR Wrong NICK format\n";
+    send_helper(table[i].sockfd, error);
+    printf("ERROR: Wrong nick format\n");
+    printf("nick_key was: %s\n", nick_key);
+    fflush(stdout);
+    table[i].active = false;
+    return;
+  }
+  if(!nick_checks(nick))
+  {
+    char error[] = "ERR nickname error\n";
+    send_helper(table[i].sockfd, error);
+    printf("ERROR: Wrong nickname\n");
+    printf("nick was: %s\n", nick);
+    fflush(stdout);
+    table[i].active = false;
+    return;
+  }
+
+  strcpy(table[i].nickname, nick);
+  char ok[] = "OK\n";
+  send_helper(table[i].sockfd, ok);
+  table[i].step = 2;
+  return;
+}
+
+void msg_step_two(struct clientInfo *table, int i)
+{
+  char recv_buffer[256];
+  ssize_t bytes_recieved = recv_helper(table[i].sockfd, recv_buffer, sizeof(recv_buffer));
+  if(bytes_recieved <= 0)
+  {
+    char error[] = "ERROR client disconnected\n";
+    send_helper(table[i].sockfd, error);
+    printf("Disconnect\n");
+    fflush(stdout);
+    table[i].active = false;
+    return;
+  }
+
+  if(strncmp(recv_buffer, "MSG ", 4) == 0)
+  {
+    for(int si = 0; si < MAXCLIENTS; si++)
+    {
+      if(table[si].active && table[si].step == 2)
+      {
+        char send_buffer[1024];
+        sprintf(send_buffer, "%s %s %s", "MSG", table[si].nickname, recv_buffer + 4);
+        printf("%s", send_buffer);
+        send_helper(table[si].sockfd, send_buffer);
+      }
+    }
+  }
+}
+
 int main(int argc, char *argv[]){
   
   /* Do more magic */
@@ -176,6 +278,13 @@ int main(int argc, char *argv[]){
     FD_SET(sockfd, &readfds);
     tv.tv_sec = 1;
     tv.tv_usec = 0;
+    for (int i = 0; i < MAXCLIENTS; i++) 
+    {
+      if (client_table[i].active)
+      {
+        FD_SET(client_table[i].sockfd, &readfds);
+      }
+    }
 
     int select_status = select(maxfd + 1, &readfds, NULL, NULL, &tv);
     if(select_status == -1)
@@ -210,13 +319,33 @@ int main(int argc, char *argv[]){
         {
           client_table[i].sockfd = clientfd;
           client_table[i].active = true;
-          client_table[i].step = 0;
+          client_table[i].step = 1;
           FD_SET(clientfd, &readfds);
           if(clientfd > maxfd)
           {
             maxfd = clientfd;
           }
           break;
+        }
+      }
+
+      //Contact the client and begin chat protocol
+      char *hello = "HELLO 1\n";
+      send_helper(clientfd, hello);
+    }
+
+    //Existing connection
+    for(int i = 0; i < MAXCLIENTS; i++)
+    {
+      if(client_table[i].active && FD_ISSET(client_table[i].sockfd, &readfds))
+      {
+        if(client_table[i].step == 2)
+        {
+          msg_step_two(client_table, i);
+        }
+        if(client_table[i].step == 1)
+        {
+          msg_step_one(client_table, i);
         }
       }
     }
