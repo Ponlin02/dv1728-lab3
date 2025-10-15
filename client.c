@@ -295,7 +295,6 @@ int main(int argc, char *argv[]){
       char send_buffer[1024];
       char input[256];
       fgets(input, sizeof(input), stdin);
-      printf("INput: %s\n", input);
       sprintf(send_buffer, "%s %s %s", "MSG", nickname, input);
       send_helper(sockfd, send_buffer);
     }
