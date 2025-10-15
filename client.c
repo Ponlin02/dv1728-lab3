@@ -145,13 +145,13 @@ void handleMessage(char *recv_buffer)
     }
     *end = '\0';
 
-    char *space = strchr(msg + 4, ' ');
+    /*char *space = strchr(msg + 4, ' ');
     if(space)
     {
       memmove(msg, space + 1, strlen(space));
-    }
+    }*/
     
-    printf("%s\n", msg);
+    printf("%s\n", msg + 4);
     fflush(stdout);
   }
 }
@@ -295,6 +295,7 @@ int main(int argc, char *argv[]){
       char send_buffer[1024];
       char input[256];
       fgets(input, sizeof(input), stdin);
+      printf("INput: %s\n", input);
       sprintf(send_buffer, "%s %s %s", "MSG", nickname, input);
       send_helper(sockfd, send_buffer);
     }
