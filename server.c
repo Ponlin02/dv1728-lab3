@@ -10,6 +10,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <ctype.h>
+#include <time.h>
 
 // Enable if you want debugging to be printed, see examble below.
 // Alternative, pass CFLAGS=-DDEBUG to make, make CFLAGS=-DDEBUG
@@ -20,7 +21,6 @@ struct clientInfo
 {
   int sockfd;
   char nickname[32];
-  //char pending_msg[256];
   int step;
   bool active;
 };
@@ -201,7 +201,7 @@ void msg_step_one(struct clientInfo *table, int i)
   return;
 }
 
-void msg_step_two(struct clientInfo *table, int senderIndex)
+void msg_step_two(struct clientInfo *table, int senderIndex, char *hoststring, char *portstring, time_t server_start)
 {
   char recv_buffer[256];
   ssize_t bytes_recieved = recv_helper(table[senderIndex].sockfd, recv_buffer, sizeof(recv_buffer));
@@ -228,6 +228,69 @@ void msg_step_two(struct clientInfo *table, int senderIndex)
         send_helper(table[si].sockfd, send_buffer);
       }
     }
+    return;
+  }
+
+  if(strncmp(recv_buffer, "Status", 6) == 0)
+  {
+    char send_buffer[1024];
+    char index_list[128];
+    index_list[0] = '\0';
+    strcat(index_list, "[");
+
+    int noActive = 0;
+    bool first = true;
+
+    for (int i = 0; i < MAXCLIENTS; i++)
+    {
+      if(table[i].active)
+      {
+        noActive++;
+        char temp[8];
+        if(!first)
+        {
+          strcat(index_list, ",");
+        }
+        snprintf(temp, sizeof(temp), "%d", i);
+        strcat(index_list, temp);
+        first = false;
+      }
+    }
+    strcat(index_list, "]");
+
+    time_t now = time(NULL);
+    long uptime = (long)(now - server_start);
+    
+    sprintf(send_buffer, "CPSTATUS\nListenAdresess:%s:%s\nClients <%d Clients, Integer %s\nUpTime  <%ld>\n\n", hoststring, portstring, noActive, index_list, uptime);
+    printf("%s", send_buffer);
+    send_helper(table[senderIndex].sockfd, send_buffer);
+    return;
+  }
+
+  if(strncmp(recv_buffer, "Status", 6) == 0)
+  {
+    char send_buffer[1024];    
+    sprintf(send_buffer, "%s", "NO\n");
+    printf("%s", send_buffer);
+    send_helper(table[senderIndex].sockfd, send_buffer);
+    return;
+  }
+
+  if(strncmp(recv_buffer, "Clients", 7) == 0)
+  {
+    char send_buffer[1024];    
+    sprintf(send_buffer, "%s", "NO\n");
+    printf("%s", send_buffer);
+    send_helper(table[senderIndex].sockfd, send_buffer);
+    return;
+  }
+
+  if(strncmp(recv_buffer, "KICK", 4) == 0)
+  {
+    char send_buffer[1024];    
+    sprintf(send_buffer, "%s", "NO\n");
+    printf("%s", send_buffer);
+    send_helper(table[senderIndex].sockfd, send_buffer);
     return;
   }
 }
@@ -279,6 +342,7 @@ int main(int argc, char *argv[]){
   struct clientInfo client_table[MAXCLIENTS];
   memset(client_table, 0, sizeof(client_table));
   int maxfd = sockfd;
+  time_t server_start = time(NULL);
 
   while(1)
   {
@@ -349,7 +413,7 @@ int main(int argc, char *argv[]){
       {
         if(client_table[i].step == 2)
         {
-          msg_step_two(client_table, i);
+          msg_step_two(client_table, i, hoststring, portstring, server_start);
         }
         if(client_table[i].step == 1)
         {
