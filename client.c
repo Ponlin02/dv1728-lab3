@@ -132,28 +132,35 @@ bool nick_checks(char *nickname)
   return true;
 }
 
-void handleMessage(char *recv_buffer)
+void handleMessage(char *pending_msg, size_t pending_size, char *recv_buffer)
 {
-  char *msg = recv_buffer;
+  char combined[512];
+  snprintf(combined, sizeof(combined), "%s%s", pending_msg, recv_buffer);
+  char *msg = combined;
 
   while((msg = strstr(msg, "MSG")) != NULL)
   {
     char *end = strchr(msg, '\n');
     if(end == NULL)
     {
-      break; //Incomplete message..
+      snprintf(pending_msg, pending_size, "%s", msg);
+      return; //Incomplete message..
     }
     *end = '\0';
 
-    /*char *space = strchr(msg + 4, ' ');
+    char *space = strchr(msg, ' ');
     if(space)
     {
-      memmove(msg, space + 1, strlen(space));
-    }*/
+      memmove(msg, space + 1, strlen(space + 1) + 1);
+    }
     
-    printf("%s\n", msg + 4);
+    printf("%s\n", msg);
     fflush(stdout);
+    msg = end + 1;
   }
+
+  //all messages were complete
+  pending_msg[0] = '\0';
 }
 
 bool chat_protocol(int sockfd, char *nickname)
@@ -196,7 +203,8 @@ bool chat_protocol(int sockfd, char *nickname)
 
   printf("Name accepted!\n");
   fflush(stdout);
-  handleMessage(recv_buffer + 3);
+  char no_msg[1];
+  handleMessage(no_msg, 0, recv_buffer + 3);
   fflush(stdout);
   return true;
 }
@@ -268,6 +276,8 @@ int main(int argc, char *argv[]){
   newt.c_lflag &= ~(ICANON | ECHO);
   tcsetattr(STDIN_FILENO, TCSANOW, &newt);
 
+  char pending_msg[256];
+
   while(1)
   {
     FD_ZERO(&readfds);
@@ -295,7 +305,7 @@ int main(int argc, char *argv[]){
       char send_buffer[1024];
       char input[256];
       fgets(input, sizeof(input), stdin);
-      sprintf(send_buffer, "%s %s %s", "MSG", nickname, input);
+      sprintf(send_buffer, "%s %s", "MSG", input);
       send_helper(sockfd, send_buffer);
     }
 
@@ -315,7 +325,7 @@ int main(int argc, char *argv[]){
         close(sockfd);
         return EXIT_FAILURE;
       }
-      handleMessage(recv_buffer);
+      handleMessage(pending_msg, sizeof(pending_msg), recv_buffer);
     }
   }
 
