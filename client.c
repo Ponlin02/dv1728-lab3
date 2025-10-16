@@ -151,12 +151,11 @@ void handleMessage(char *pending_msg, size_t pending_size, char *recv_buffer)
     char *space = strchr(msg, ' ');
     if(space)
     {
-      memmove(msg, space + 1, strlen(space + 1) + 1);
+      memmove(msg, space + 1, strlen(space));
     }
     
     printf("%s\n", msg);
     fflush(stdout);
-    msg = end + 1;
   }
 
   //all messages were complete
