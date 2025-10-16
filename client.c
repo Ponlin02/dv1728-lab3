@@ -156,6 +156,7 @@ void handleMessage(char *pending_msg, size_t pending_size, char *recv_buffer)
     
     printf("%s\n", msg);
     fflush(stdout);
+    msg = end + 1;
   }
 
   //all messages were complete

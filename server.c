@@ -20,6 +20,7 @@ struct clientInfo
 {
   int sockfd;
   char nickname[32];
+  //char pending_msg[256];
   int step;
   bool active;
 };
@@ -161,12 +162,15 @@ void msg_step_one(struct clientInfo *table, int i)
     printf("Disconnect\n");
     fflush(stdout);
     table[i].active = false;
+    close(table[i].sockfd);
     return;
   }
 
   char nick_key[10];
   char nick[32];
   sscanf(recv_buffer, "%s %s", nick_key, nick);
+  //printf("nick key: %s\n", nick_key);
+  //printf("nickname: %s\n", nick);
   if(strstr(nick_key, "NICK") == NULL)
   {
     char error[] = "ERR Wrong NICK format\n";
@@ -175,6 +179,7 @@ void msg_step_one(struct clientInfo *table, int i)
     printf("nick_key was: %s\n", nick_key);
     fflush(stdout);
     table[i].active = false;
+    close(table[i].sockfd);
     return;
   }
   if(!nick_checks(nick))
@@ -185,6 +190,7 @@ void msg_step_one(struct clientInfo *table, int i)
     printf("nick was: %s\n", nick);
     fflush(stdout);
     table[i].active = false;
+    close(table[i].sockfd);
     return;
   }
 
@@ -195,17 +201,18 @@ void msg_step_one(struct clientInfo *table, int i)
   return;
 }
 
-void msg_step_two(struct clientInfo *table, int i)
+void msg_step_two(struct clientInfo *table, int senderIndex)
 {
   char recv_buffer[256];
-  ssize_t bytes_recieved = recv_helper(table[i].sockfd, recv_buffer, sizeof(recv_buffer));
+  ssize_t bytes_recieved = recv_helper(table[senderIndex].sockfd, recv_buffer, sizeof(recv_buffer));
   if(bytes_recieved <= 0)
   {
     char error[] = "ERROR client disconnected\n";
-    send_helper(table[i].sockfd, error);
+    send_helper(table[senderIndex].sockfd, error);
     printf("Disconnect\n");
     fflush(stdout);
-    table[i].active = false;
+    table[senderIndex].active = false;
+    close(table[senderIndex].sockfd);
     return;
   }
 
@@ -216,11 +223,12 @@ void msg_step_two(struct clientInfo *table, int i)
       if(table[si].active && table[si].step == 2)
       {
         char send_buffer[1024];
-        sprintf(send_buffer, "%s %s %s", "MSG", table[si].nickname, recv_buffer + 4);
-        printf("%s", send_buffer);
+        sprintf(send_buffer, "%s %s %s", "MSG", table[senderIndex].nickname, recv_buffer + 4);
+        printf("%s", send_buffer + 4);
         send_helper(table[si].sockfd, send_buffer);
       }
     }
+    return;
   }
 }
 
@@ -228,7 +236,7 @@ int main(int argc, char *argv[]){
   
   /* Do more magic */
   if (argc < 2) {
-    fprintf(stderr, "Usage: %s protocol://server:port/path.\n", argv[0]);
+    fprintf(stderr, "Usage: %s server:port\n", argv[0]);
     exit(EXIT_FAILURE);
   }
   
