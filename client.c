@@ -151,7 +151,7 @@ void handleMessage(char *pending_msg, size_t pending_size, char *recv_buffer)
     char *space = strchr(msg, ' ');
     if(space)
     {
-      memmove(msg, space + 1, strlen(space));
+      memmove(msg, space + 1, strlen(space) + 1);
     }
     
     printf("%s\n", msg);
