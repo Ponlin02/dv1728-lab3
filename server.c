@@ -7,6 +7,7 @@
 #include <sys/time.h>
 #include <unistd.h>
 #include <netdb.h>
+#include <arpa/inet.h>
 #include <stdbool.h>
 #include <string.h>
 #include <ctype.h>
@@ -23,6 +24,9 @@ struct clientInfo
   char nickname[32];
   int step;
   bool active;
+  time_t connect_time;
+  char ip[INET6_ADDRSTRLEN];
+  int port;
 };
 
 ssize_t send_helper(int sockfd, const char* send_buffer)
@@ -261,16 +265,7 @@ void msg_step_two(struct clientInfo *table, int senderIndex, char *hoststring, c
     time_t now = time(NULL);
     long uptime = (long)(now - server_start);
     
-    sprintf(send_buffer, "CPSTATUS\nListenAdresess:%s:%s\nClients <%d Clients, Integer %s\nUpTime  <%ld>\n\n", hoststring, portstring, noActive, index_list, uptime);
-    printf("%s", send_buffer);
-    send_helper(table[senderIndex].sockfd, send_buffer);
-    return;
-  }
-
-  if(strncmp(recv_buffer, "Status", 6) == 0)
-  {
-    char send_buffer[1024];    
-    sprintf(send_buffer, "%s", "NO\n");
+    sprintf(send_buffer, "CPSTATUS\nListenAdress:%s:%s\nClients <%d Clients, Integer %s\nUpTime  <%ld>\n\n", hoststring, portstring, noActive, index_list, uptime);
     printf("%s", send_buffer);
     send_helper(table[senderIndex].sockfd, send_buffer);
     return;
@@ -278,8 +273,20 @@ void msg_step_two(struct clientInfo *table, int senderIndex, char *hoststring, c
 
   if(strncmp(recv_buffer, "Clients", 7) == 0)
   {
-    char send_buffer[1024];    
-    sprintf(send_buffer, "%s", "NO\n");
+    char send_buffer[1024];
+    sprintf(send_buffer, "CPCLIENTS\n");
+    for(int i = 0; i < MAXCLIENTS; i++)
+    {
+      if(table[i].active)
+      {
+        char temp[128];
+        time_t now = time(NULL);
+        long seconds_connected = (long)(now - table[i].connect_time);
+        sprintf(temp, "<%d> <%s> <%s:%d> <%ld>\n", i, table[i].nickname, table[i].ip, table[i].port, seconds_connected);
+        strcat(send_buffer, temp);
+      }
+    }
+    
     printf("%s", send_buffer);
     send_helper(table[senderIndex].sockfd, send_buffer);
     return;
@@ -287,7 +294,7 @@ void msg_step_two(struct clientInfo *table, int senderIndex, char *hoststring, c
 
   if(strncmp(recv_buffer, "KICK", 4) == 0)
   {
-    char send_buffer[1024];    
+    char send_buffer[1024];
     sprintf(send_buffer, "%s", "NO\n");
     printf("%s", send_buffer);
     send_helper(table[senderIndex].sockfd, send_buffer);
@@ -374,7 +381,10 @@ int main(int argc, char *argv[]){
     //New connection
     if(FD_ISSET(sockfd, &readfds))
     {
-      int clientfd = accept(sockfd, NULL, NULL);
+      struct sockaddr_storage client_addr;
+      socklen_t addr_size = sizeof(client_addr);
+
+      int clientfd = accept(sockfd, (struct sockaddr *)&client_addr, &addr_size);
       if(clientfd < 0)
       {
         printf("ERROR: clientfd Failed\n");
@@ -382,6 +392,23 @@ int main(int argc, char *argv[]){
         printf("Returned: %d\n", clientfd);
         fflush(stdout);
         continue;
+      }
+
+      char ip_str[INET6_ADDRSTRLEN];
+      int port;
+      time_t time_of_connection = time(NULL);
+
+      if(client_addr.ss_family == AF_INET)
+      {
+        struct sockaddr_in *s = (struct sockaddr_in *)&client_addr;
+        port = ntohs(s->sin_port);
+        inet_ntop(AF_INET, &s->sin_addr, ip_str, sizeof(ip_str));
+      }
+      else
+      {
+        struct sockaddr_in6 *s = (struct sockaddr_in6 *)&client_addr;
+        port = ntohs(s->sin6_port);
+        inet_ntop(AF_INET6, &s->sin6_addr, ip_str, sizeof(ip_str));
       }
 
       //New client, put the client in table
@@ -392,6 +419,9 @@ int main(int argc, char *argv[]){
           client_table[i].sockfd = clientfd;
           client_table[i].active = true;
           client_table[i].step = 1;
+          strcpy(client_table[i].ip, ip_str);
+          client_table[i].port = port;
+          client_table[i].connect_time = time_of_connection;
           FD_SET(clientfd, &readfds);
           if(clientfd > maxfd)
           {
