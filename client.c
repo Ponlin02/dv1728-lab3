@@ -134,7 +134,7 @@ bool nick_checks(char *nickname)
 
 void handleMessage(char *pending_msg, size_t pending_size, char *recv_buffer)
 {
-  char combined[512];
+  char combined[2048];
   snprintf(combined, sizeof(combined), "%s%s", pending_msg, recv_buffer);
   char *msg = combined;
 
@@ -275,7 +275,7 @@ int main(int argc, char *argv[]){
   newt.c_lflag &= ~(ICANON | ECHO);
   tcsetattr(STDIN_FILENO, TCSANOW, &newt);
 
-  char pending_msg[256];
+  char pending_msg[1024];
 
   while(1)
   {
