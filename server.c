@@ -265,7 +265,7 @@ void msg_step_two(struct clientInfo *table, int senderIndex, char *hoststring, c
     time_t now = time(NULL);
     long uptime = (long)(now - server_start);
     
-    sprintf(send_buffer, "CPSTATUS\nListenAdress:%s:%s\nClients <%d Clients, Integer %s\nUpTime  <%ld>\n\n", hoststring, portstring, noActive, index_list, uptime);
+    sprintf(send_buffer, "CPSTATUS\nListenAddress:%s:%s\nClients <%d Clients, Integer %s\nUpTime  <%ld>\n\n", hoststring, portstring, noActive, index_list, uptime);
     printf("%s", send_buffer);
     send_helper(table[senderIndex].sockfd, send_buffer);
     return;
@@ -286,7 +286,7 @@ void msg_step_two(struct clientInfo *table, int senderIndex, char *hoststring, c
         strcat(send_buffer, temp);
       }
     }
-    
+
     printf("%s", send_buffer);
     send_helper(table[senderIndex].sockfd, send_buffer);
     return;
@@ -295,7 +295,49 @@ void msg_step_two(struct clientInfo *table, int senderIndex, char *hoststring, c
   if(strncmp(recv_buffer, "KICK", 4) == 0)
   {
     char send_buffer[1024];
-    sprintf(send_buffer, "%s", "NO\n");
+    char kick_command[8];
+    char nick_kick[64];
+    char secret_str[64];
+    sscanf(recv_buffer, "%s %s %s", kick_command, nick_kick, secret_str);
+    if(strcmp(kick_command, "KICK") != 0)
+    {
+      return; 
+    }
+    if(strcmp(secret_str, "mfo:.ai?fqajdalf832!") != 0)
+    {
+      sprintf(send_buffer, "CPKICK: Wrong secret\n\n");
+      printf("%s", send_buffer);
+      send_helper(table[senderIndex].sockfd, send_buffer);
+      return;
+    }
+    int kick_index = -1;
+    for(int i = 0; i < MAXCLIENTS; i++)
+    {
+      if(strcmp(table[i].nickname, nick_kick) == 0)
+      {
+        kick_index = i;
+        break;
+      }
+    }
+
+    if(kick_index == -1)
+    {
+      sprintf(send_buffer, "CPKICK: %s not found\n\n", nick_kick);
+      printf("%s", send_buffer);
+      send_helper(table[senderIndex].sockfd, send_buffer);
+      return;
+    }
+
+    //Kicking the NICK
+    char kick_msg[256];
+    sprintf(kick_msg, "KICKED by %s\n", table[senderIndex].nickname); //temp "\n"
+    //printf("Client is sent: %s\n", kick_msg);
+    send_helper(table[kick_index].sockfd, kick_msg);
+    close(table[kick_index].sockfd);
+    table[kick_index].active = false;
+
+    //Inform sender that kicking was a success
+    sprintf(send_buffer, "CPKICK: %s removed\n\n", table[kick_index].nickname);
     printf("%s", send_buffer);
     send_helper(table[senderIndex].sockfd, send_buffer);
     return;
