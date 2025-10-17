@@ -265,7 +265,7 @@ void msg_step_two(struct clientInfo *table, int senderIndex, char *hoststring, c
     time_t now = time(NULL);
     long uptime = (long)(now - server_start);
     
-    sprintf(send_buffer, "CPSTATUS\nListenAddress:%s:%s\nClients <%d Clients, Integer %s\nUpTime  <%ld>\n\n", hoststring, portstring, noActive, index_list, uptime);
+    sprintf(send_buffer, "CPSTATUS\nListenAddress:%s:%s\nClients %d\nUpTime  %ld\n\n", hoststring, portstring, noActive, uptime);
     printf("%s", send_buffer);
     send_helper(table[senderIndex].sockfd, send_buffer);
     return;
@@ -282,11 +282,12 @@ void msg_step_two(struct clientInfo *table, int senderIndex, char *hoststring, c
         char temp[128];
         time_t now = time(NULL);
         long seconds_connected = (long)(now - table[i].connect_time);
-        sprintf(temp, "<%d> <%s> <%s:%d> <%ld>\n", i, table[i].nickname, table[i].ip, table[i].port, seconds_connected);
+        sprintf(temp, "%d %s %s:%d %ld\n", i, table[i].nickname, table[i].ip, table[i].port, seconds_connected);
         strcat(send_buffer, temp);
       }
     }
 
+    strcat(send_buffer, "\n");
     printf("%s", send_buffer);
     send_helper(table[senderIndex].sockfd, send_buffer);
     return;
@@ -330,8 +331,7 @@ void msg_step_two(struct clientInfo *table, int senderIndex, char *hoststring, c
 
     //Kicking the NICK
     char kick_msg[256];
-    sprintf(kick_msg, "KICKED by %s\n", table[senderIndex].nickname); //temp "\n"
-    //printf("Client is sent: %s\n", kick_msg);
+    sprintf(kick_msg, "KICKED by %s\n", table[senderIndex].nickname);
     send_helper(table[kick_index].sockfd, kick_msg);
     close(table[kick_index].sockfd);
     table[kick_index].active = false;

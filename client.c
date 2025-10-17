@@ -146,7 +146,14 @@ void handleMessage(char *pending_msg, size_t pending_size, char *recv_buffer)
       snprintf(pending_msg, pending_size, "%s", msg);
       return; //Incomplete message..
     }
-    *end = '\0';
+    //*end = '\0'; //removed for now
+
+    char noNull[1024];
+    memset(noNull, 0, sizeof(noNull));
+    char *start = strchr(msg, ' ');
+    //printf("Number of bytes in message: %ld\n", end - start);
+    //printf("start buffer is: %s\n", start);
+    memcpy(noNull, start + 1, end - start);
 
     char *space = strchr(msg, ' ');
     if(space)
@@ -154,7 +161,7 @@ void handleMessage(char *pending_msg, size_t pending_size, char *recv_buffer)
       memmove(msg, space + 1, strlen(space) + 1);
     }
     
-    printf("%s\n", msg);
+    printf("%s", noNull);
     fflush(stdout);
     msg = end + 1;
   }
@@ -306,6 +313,7 @@ int main(int argc, char *argv[]){
       char input[256];
       fgets(input, sizeof(input), stdin);
       sprintf(send_buffer, "%s %s", "MSG", input);
+      //sprintf(send_buffer, "%s", input);
       send_helper(sockfd, send_buffer);
     }
 
