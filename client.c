@@ -138,6 +138,9 @@ void handleMessage(char *pending_msg, size_t pending_size, char *recv_buffer)
   snprintf(combined, sizeof(combined), "%s%s", pending_msg, recv_buffer);
   char *msg = combined;
 
+  //char testMessage[] = "MSG hej bob\nMSG hejsan pontus\n";
+  //char *msg = testMessage;
+
   while((msg = strstr(msg, "MSG")) != NULL)
   {
     char *end = strchr(msg, '\n');
@@ -146,14 +149,14 @@ void handleMessage(char *pending_msg, size_t pending_size, char *recv_buffer)
       snprintf(pending_msg, pending_size, "%s", msg);
       return; //Incomplete message..
     }
-    //*end = '\0'; //removed for now
+    *end = '\0'; //removed for now
 
-    char noNull[1024];
-    memset(noNull, 0, sizeof(noNull));
-    char *start = strchr(msg, ' ');
+    //char noNull[1024];
+    //memset(noNull, 0, sizeof(noNull));
+    //char *start = strchr(msg, ' ');
     //printf("Number of bytes in message: %ld\n", end - start);
     //printf("start buffer is: %s\n", start);
-    memcpy(noNull, start + 1, end - start);
+    //memcpy(noNull, start + 1, end - start);
 
     char *space = strchr(msg, ' ');
     if(space)
@@ -161,7 +164,7 @@ void handleMessage(char *pending_msg, size_t pending_size, char *recv_buffer)
       memmove(msg, space + 1, strlen(space) + 1);
     }
     
-    printf("%s", noNull);
+    printf("%s\n", msg);
     fflush(stdout);
     msg = end + 1;
   }
